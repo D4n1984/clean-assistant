@@ -2,6 +2,10 @@
 
 # Clean Assistant
 
+Open **Settings → House maps → Map history** to preview or download an earlier floor plan, even after the robot loses its active map. The server keeps up to ten versions per map and twenty maps in total. The JSON export contains the decoded floor plan for use outside the robot. Navigation on the 4090 still requires its native map.
+
+For the 4090, select the `legacy` backend. Cleaning settings and restricted areas have separate resend switches. When reading existing preferences, the settings switch retains its value and the new restrictions switch starts off.
+
 A **local, no-cloud** app to manage the **Cecotec Conga 8090 Ultra** — and other Conga
 models on the same **3irobotix** platform (**4690 / 6090 / 7090 / 9090 / 3890** confirmed by
 users), Tuya-based Congas such as the **8290** (experimental), and now other brands too: the
@@ -56,10 +60,10 @@ login.
 
 1. **Add this repository** to your Home Assistant. One click:
 
-   [![Add repository to your Home Assistant instance](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmiguelsg29%2Fclean-assistant)
+   [![Add repository to your Home Assistant instance](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FD4n1984%2Fclean-assistant)
 
    Or manually: in Home Assistant, **Settings → Apps → App Store → ⋮ menu (top right) →
-   Repositories**, paste `https://github.com/miguelsg29/clean-assistant` and click
+   Repositories**, paste `https://github.com/D4n1984/clean-assistant` and click
    **Add**.
 2. **Install "Clean Assistant"** from the App Store (if it doesn't show up, refresh with
    ⋮ → Reload) and open it.
@@ -213,8 +217,6 @@ How it's done (Sweet Home 3D, `picture-elements`, calibration, occlusion mask, M
 ### 🌍 Languages & easy updates
 - Interface **in 9 languages** — Spanish, English, German, Italian, French, Portuguese, Dutch,
   Catalan and Polish. Pick it from the header; it auto-detects your browser language.
-- The Home Assistant add-on ships as a **prebuilt image**, so **updates are fast**
-  (downloaded, not built on your device) and show a real progress bar.
 
 ## Architecture
 
@@ -294,10 +296,7 @@ session). The app reads the **time zone** and the host's **LAN IP** from the Sup
 (for the DNS instructions), picks up HA's **MQTT** broker on its own, and opens the
 robot's ports (9090/8001/8002/8006).
 
-The add-on ships as a **prebuilt multi-arch image** (aarch64/amd64), built by GitHub
-Actions and published to GHCR on every release. Home Assistant **downloads** it instead of
-building it on your device, so **updates are fast and show a real progress bar** — no
-on-device compilation.
+Home Assistant builds the add-on from the tagged fork source on amd64 and aarch64. Each repository has its own add-on data. Back up the original add-on and stop it before starting this one on the same ports.
 
 ## Structure
 

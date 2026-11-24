@@ -2,7 +2,7 @@ name: Build & publish add-on image
 
 # Se dispara al publicar un tag vX.Y.Z (el mismo que la versión de clean_assistant/config.yaml).
 # Compila la imagen del add-on con docker buildx para cada arquitectura y la publica en GHCR:
-#   ghcr.io/miguelsg29/clean-assistant-{arch}:X.Y.Z  (+ :latest)
+#   ghcr.io/d4n1984/clean-assistant-{arch}:X.Y.Z  (+ :latest)
 # Home Assistant la descarga en vez de compilarla en el dispositivo.
 on:
   push:
@@ -56,5 +56,5 @@ jobs:
           build-args: |
             APP_REF=${{ github.ref_name }}
           tags: |
-            ghcr.io/miguelsg29/clean-assistant-${{ matrix.arch }}:${{ steps.ver.outputs.version }}
-            ghcr.io/miguelsg29/clean-assistant-${{ matrix.arch }}:latest
+            ghcr.io/d4n1984/clean-assistant-${{ matrix.arch }}:${{ steps.ver.outputs.version }}
+            ghcr.io/d4n1984/clean-assistant-${{ matrix.arch }}:latest

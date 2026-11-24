@@ -2,6 +2,10 @@
 
 # Clean Assistant
 
+En **Ajustes → Mapas de la casa → Historial de planos** puedes ver y descargar versiones anteriores, aunque el robot pierda el mapa activo. Se conservan hasta diez versiones por mapa para un máximo de veinte mapas. El JSON contiene el plano decodificado para consultarlo fuera del robot. Para navegar, la 4090 sigue necesitando su mapa nativo.
+
+En la 4090, selecciona el backend `legacy`. El reenvío de ajustes y el de restricciones tienen interruptores independientes. Al leer preferencias de una versión anterior se conserva el ajuste de potencia y caudal, y el nuevo interruptor de restricciones empieza desactivado.
+
 Aplicación **local y sin nube** para gestionar el robot aspirador **Cecotec Conga
 8090 Ultra** — y otros modelos Conga de la misma plataforma **3irobotix** (**4690 / 6090 /
 7090 / 9090 / 3890** confirmados por usuarios), los Conga sobre Tuya como el **8290**
@@ -55,10 +59,10 @@ sin login aparte.
 
 1. **Añade este repositorio** a tu Home Assistant. Un clic:
 
-   [![Añadir repositorio a tu instancia de Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmiguelsg29%2Fclean-assistant)
+   [![Añadir repositorio a tu instancia de Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FD4n1984%2Fclean-assistant)
 
    O a mano: en Home Assistant, **Ajustes → Apps → Tienda de Apps → menú ⋮ (arriba a la
-   derecha) → Repositorios**, pega `https://github.com/miguelsg29/clean-assistant` y pulsa
+   derecha) → Repositorios**, pega `https://github.com/D4n1984/clean-assistant` y pulsa
    **Añadir**.
 2. **Instala «Clean Assistant»** desde la Tienda de Apps (si no aparece, recarga con ⋮ →
    Recargar) y ábrelo.
@@ -215,9 +219,6 @@ Mushroom): [la explicación de miajed en el issue #2](https://github.com/miguels
 ### 🌍 Idiomas y actualizaciones fáciles
 - Interfaz **en 9 idiomas** — español, inglés, alemán, italiano, francés, portugués, neerlandés,
   catalán y polaco. Se elige en la cabecera; detecta el idioma del navegador automáticamente.
-- El add-on de Home Assistant se distribuye como **imagen precompilada**, así que las
-  **actualizaciones son rápidas** (se descargan, no se compilan en tu equipo) y con barra
-  de progreso real.
 
 ## Arquitectura
 
@@ -298,10 +299,7 @@ con la sesión de HA). La app lee del Supervisor la **zona horaria** y la **IP L
 del host (para las instrucciones de DNS), coge el broker **MQTT** de HA solo, y abre los
 puertos del robot (9090/8001/8002/8006).
 
-El add-on se distribuye como **imagen precompilada multi-arquitectura** (aarch64/amd64),
-construida por GitHub Actions y publicada en GHCR en cada release. Home Assistant la
-**descarga** en vez de compilarla en tu equipo, así que las **actualizaciones son rápidas
-y con barra de progreso real** — sin compilar en el dispositivo.
+Home Assistant compila el complemento desde la etiqueta de este fork para amd64 o aarch64. Cada repositorio tiene sus propios datos en Home Assistant. Antes de iniciar este complemento en los mismos puertos, guarda una copia del original y detenlo.
 
 ## Estructura
 

@@ -551,6 +551,15 @@
         <div class="phead notuya">Mapas de la casa</div>
         <p class="hint nolegacy" style="opacity:.65;font-size:11.5px;margin:0 0 8px">Clean Assistant recuerda los mapas que va viendo. Pulsa uno para activarlo en el robot. (Al cambiar de mapa, las zonas y horarios son por mapa.) Puedes borrar cualquier mapa; si borras el último, el robot se queda sin mapa y podrás crear uno nuevo desde cero.</p>
         <div id="mapsList" class="notuya"></div>
+        <details class="notuya" id="mapArchive">
+          <summary>Historial de planos</summary>
+          <p class="hint">Consulta y descarga los planos guardados en este servidor. El robot necesita su propio mapa para navegar.</p>
+          <label for="archiveVersion">Versión guardada</label>
+          <select id="archiveVersion" class="tinput" disabled></select>
+          <p class="hint" id="archiveStatus" role="status"></p>
+          <img id="archivePreview" alt="Plano archivado" hidden style="max-width:100%;max-height:18rem"/>
+          <p><a id="archiveDownload" hidden download>Descargar JSON</a></p>
+        </details>
         <div class="btnrow legacyhide"><button class="btn ghost" id="newMapBtn">+ Crear mapa nuevo</button><button class="btn ghost norobeye" id="wipeMapsBtn" style="color:var(--critical)">Borrar todos</button></div>
         <div id="newMapForm" class="legacyhide" style="display:none">
           <div class="field"><label>Nombre del mapa</label><input type="text" id="nmName" class="tinput" placeholder="Planta baja"/></div>
@@ -572,7 +581,8 @@
         <div class="row norobeye"><div class="rt"><div class="t">Turbo en alfombras</div><div class="d">Sube potencia al detectar alfombra</div></div><button class="toggle" id="carpetTog" aria-pressed="true"></button></div>
         <div class="row onlylegacy"><div class="rt"><div class="t">Mapa persistente</div><div class="d">El robot guarda el mapa y lo reutiliza en cada limpieza</div></div><button class="toggle" id="persistTog"></button></div>
         <div class="row norobeye notuya"><div class="rt"><div class="t">Actualizaciones automáticas</div><div class="d">Recomendado desactivar en local</div></div><button class="toggle" id="otaTog"></button></div>
-        <div class="row notuya"><div class="rt"><div class="t">Reenviar zonas y ajustes antes de limpiar</div><div class="d">Si el robot arranca "en frío" y a veces ignora zonas prohibidas o la potencia/agua/mopa guardadas, activa esto para reenviárselas justo antes de cada limpieza. Sustituye las zonas del robot por las de Clean Assistant (las creadas en la app oficial se perderían)</div></div><button class="toggle" id="resendCleanTog"></button></div>
+        <div class="row notuya"><div class="rt"><div class="t">Reenviar ajustes antes de limpiar</div><div class="d">Aplica de nuevo la potencia, el caudal y los demás ajustes de limpieza compatibles.</div></div><button class="toggle" id="resendCleanTog" aria-label="Reenviar ajustes antes de limpiar" aria-pressed="false"></button></div>
+        <div class="row notuya"><div class="rt"><div class="t">Reenviar restricciones antes de limpiar</div><div class="d">Reenvía las paredes virtuales y las zonas prohibidas del mapa activo.</div></div><button class="toggle" id="resendWallsTog" aria-label="Reenviar restricciones antes de limpiar" aria-pressed="false"></button></div>
         <div class="phead norobeye">Base</div>
         <div class="field norobeye notuya"><label>Tipo de base</label><div class="seg" data-cmd="base_type"><button data-v="Base de carga">Base de carga</button><button data-v="Colector automático" aria-pressed="true">Colector automático</button></div></div>
         <div class="field norobeye notuya"><label>Frecuencia de vaciado</label>
@@ -679,6 +689,20 @@
   // Diccionario. Clave = texto ORIGEN en español (colapsando espacios). Solo se listan los
   // idiomas que difieren del español; lo que falte cae al español.
   var STR={
+  "Historial de planos":{en:"Map history",pt:"Histórico de mapas",fr:"Historique des plans",de:"Kartenverlauf",it:"Cronologia mappe",nl:"Kaartgeschiedenis",ca:"Historial de plànols",pl:"Historia map"},
+  "Consulta y descarga los planos guardados en este servidor. El robot necesita su propio mapa para navegar.":{en:"View and download maps saved on this server. The robot uses its own map to navigate.",pt:"Consulta e descarrega os mapas guardados neste servidor. O robô usa o seu próprio mapa para navegar.",fr:"Consultez et téléchargez les plans enregistrés sur ce serveur. Le robot utilise sa propre carte pour naviguer.",de:"Hier kannst du gespeicherte Karten ansehen und herunterladen. Der Roboter navigiert mit seiner eigenen Karte.",it:"Consulta e scarica le mappe salvate su questo server. Il robot usa la propria mappa per orientarsi.",nl:"Bekijk en download de kaarten op deze server. De robot navigeert met zijn eigen kaart.",ca:"Consulta i descarrega els plànols desats en aquest servidor. El robot navega amb el seu propi mapa.",pl:"Przeglądaj i pobieraj mapy zapisane na tym serwerze. Robot używa do nawigacji własnej mapy."},
+  "Versión guardada":{en:"Saved version",pt:"Versão guardada",fr:"Version enregistrée",de:"Gespeicherte Version",it:"Versione salvata",nl:"Opgeslagen versie",ca:"Versió desada",pl:"Zapisana wersja"},
+  "Descargar JSON":{en:"Download JSON",pt:"Descarregar JSON",fr:"Télécharger le JSON",de:"JSON herunterladen",it:"Scarica JSON",nl:"JSON downloaden",ca:"Descarrega el JSON",pl:"Pobierz JSON"},
+  "Aún no hay planos archivados.":{en:"No archived maps yet.",pt:"Ainda não há mapas arquivados.",fr:"Aucun plan archivé pour le moment.",de:"Noch keine archivierten Karten.",it:"Nessuna mappa archiviata.",nl:"Nog geen gearchiveerde kaarten.",ca:"Encara no hi ha plànols arxivats.",pl:"Brak zarchiwizowanych map."},
+  "No se pudo cargar el historial.":{en:"Could not load map history.",pt:"Não foi possível carregar o histórico.",fr:"Impossible de charger l’historique.",de:"Kartenverlauf konnte nicht geladen werden.",it:"Impossibile caricare la cronologia.",nl:"Kan de kaartgeschiedenis niet laden.",ca:"No s’ha pogut carregar l’historial.",pl:"Nie udało się wczytać historii."},
+  "No se pudo cargar el plano.":{en:"Could not load the map.",pt:"Não foi possível carregar o mapa.",fr:"Impossible de charger le plan.",de:"Karte konnte nicht geladen werden.",it:"Impossibile caricare la mappa.",nl:"Kan de kaart niet laden.",ca:"No s’ha pogut carregar el plànol.",pl:"Nie udało się wczytać mapy."},
+  "Plano archivado":{en:"Archived map",pt:"Mapa arquivado",fr:"Plan archivé",de:"Archivierte Karte",it:"Mappa archiviata",nl:"Gearchiveerde kaart",ca:"Plànol arxivat",pl:"Zarchiwizowana mapa"},
+  "Reenviar ajustes antes de limpiar":{en:"Resend settings before cleaning",pt:"Reenviar definições antes da limpeza",fr:"Renvoyer les réglages avant le nettoyage",de:"Einstellungen vor der Reinigung erneut senden",it:"Reinvia le impostazioni prima della pulizia",nl:"Instellingen opnieuw sturen vóór het schoonmaken",ca:"Reenvia els ajustos abans de netejar",pl:"Wyślij ustawienia ponownie przed sprzątaniem"},
+  "Aplica de nuevo la potencia, el caudal y los demás ajustes de limpieza compatibles.":{en:"Reapply suction, water flow and other supported cleaning settings.",pt:"Reaplica a potência, o caudal e outras definições de limpeza compatíveis.",fr:"Réapplique l’aspiration, le débit d’eau et les autres réglages pris en charge.",de:"Wendet Saugkraft, Wassermenge und weitere unterstützte Einstellungen erneut an.",it:"Riapplica potenza di aspirazione, flusso d’acqua e altre impostazioni supportate.",nl:"Past de zuigkracht, waterhoeveelheid en andere ondersteunde instellingen opnieuw toe.",ca:"Torna a aplicar la potència, el cabal i els altres ajustos compatibles.",pl:"Ponownie stosuje moc ssania, przepływ wody i inne obsługiwane ustawienia."},
+  "Reenviar restricciones antes de limpiar":{en:"Resend restrictions before cleaning",pt:"Reenviar restrições antes da limpeza",fr:"Renvoyer les restrictions avant le nettoyage",de:"Sperrzonen vor der Reinigung erneut senden",it:"Reinvia le restrizioni prima della pulizia",nl:"Beperkingen opnieuw sturen vóór het schoonmaken",ca:"Reenvia les restriccions abans de netejar",pl:"Wyślij ograniczenia ponownie przed sprzątaniem"},
+  "Reenvía las paredes virtuales y las zonas prohibidas del mapa activo.":{en:"Resend virtual walls and restricted areas from the active map.",pt:"Reenvia as paredes virtuais e as zonas proibidas do mapa ativo.",fr:"Renvoie les murs virtuels et les zones interdites du plan actif.",de:"Sendet virtuelle Wände und Sperrzonen der aktiven Karte erneut.",it:"Reinvia i muri virtuali e le aree vietate della mappa attiva.",nl:"Stuurt virtuele muren en verboden zones van de actieve kaart opnieuw.",ca:"Reenvia les parets virtuals i les zones prohibides del mapa actiu.",pl:"Ponownie wysyła wirtualne ściany i strefy zakazane z aktywnej mapy."},
+  "No se pudo guardar el ajuste.":{en:"Could not save the setting.",pt:"Não foi possível guardar a definição.",fr:"Impossible d’enregistrer le réglage.",de:"Einstellung konnte nicht gespeichert werden.",it:"Impossibile salvare l’impostazione.",nl:"Kan de instelling niet opslaan.",ca:"No s’ha pogut desar l’ajust.",pl:"Nie udało się zapisać ustawienia."},
+  "No se pudo iniciar la limpieza.":{en:"Could not start cleaning.",pt:"Não foi possível iniciar a limpeza.",fr:"Impossible de lancer le nettoyage.",de:"Reinigung konnte nicht gestartet werden.",it:"Impossibile avviare la pulizia.",nl:"Kan de reiniging niet starten.",ca:"No s’ha pogut iniciar la neteja.",pl:"Nie udało się rozpocząć sprzątania."},
   // — cabecera / estado —
   "Conga 8090 Ultra · control local":{en:"Conga 8090 Ultra · local control",pt:"Conga 8090 Ultra · controlo local",fr:"Conga 8090 Ultra · contrôle local",pl:"Conga 8090 Ultra · sterowanie lokalne",de:"Conga 8090 Ultra · lokale Steuerung",it:"Conga 8090 Ultra · controllo locale",nl:"Conga 8090 Ultra · lokale besturing",ca:"Conga 8090 Ultra · control local"},
   "Conectando…":{en:"Connecting…",pt:"A ligar…",fr:"Connexion…",pl:"Łączenie…",de:"Verbinden…",it:"Connessione…",nl:"Verbinden…",ca:"Connectant…"},
@@ -1001,7 +1025,6 @@
   "Ir aquí":{en:"Go here",pt:"Ir aqui",fr:"Aller ici",pl:"Jedź tutaj",de:"Hierhin",it:"Vai qui",nl:"Ga hierheen",ca:"Anar-hi"},
   "Reiniciar mapa":{en:"Reset map",pt:"Reiniciar mapa",fr:"Réinitialiser la carte",pl:"Zresetuj mapę",de:"Karte zurücksetzen",it:"Reimposta mappa",nl:"Kaart resetten",ca:"Reinicia el mapa"},
   "Mapa en vivo en Home Assistant":{en:"Live map in Home Assistant",pt:"Mapa ao vivo no Home Assistant",fr:"Carte en direct dans Home Assistant",pl:"Mapa na żywo w Home Assistant",de:"Live-Karte in Home Assistant",it:"Mappa dal vivo in Home Assistant",nl:"Live kaart in Home Assistant",ca:"Mapa en directe a Home Assistant"},
-  "Reenviar zonas y ajustes antes de limpiar":{en:"Resend zones and settings before cleaning",pt:"Reenviar zonas e definições antes de limpar",fr:"Renvoyer les zones et réglages avant le nettoyage",pl:"Wyślij ponownie strefy i ustawienia przed sprzątaniem",de:"Zonen und Einstellungen vor dem Reinigen erneut senden",it:"Reinvia zone e impostazioni prima della pulizia",nl:"Zones en instellingen opnieuw verzenden vóór het schoonmaken",ca:"Reenviar zones i ajustos abans de netejar"},
   "Si el robot arranca \"en frío\" y a veces ignora zonas prohibidas o la potencia/agua/mopa guardadas, activa esto para reenviárselas justo antes de cada limpieza. Sustituye las zonas del robot por las de Clean Assistant (las creadas en la app oficial se perderían)":{en:"If the robot starts up \"cold\" and sometimes ignores no-go zones or the saved fan/water/mop settings, enable this to resend them right before every clean. It replaces the robot's zones with Clean Assistant's (zones created in the official app would be lost)",pt:"Se o robô arranca \"a frio\" e por vezes ignora zonas proibidas ou a potência/água/mopa guardadas, ative isto para as reenviar mesmo antes de cada limpeza. Substitui as zonas do robô pelas do Clean Assistant (as criadas na app oficial perder-se-iam)",fr:"Si le robot démarre \"à froid\" et ignore parfois les zones interdites ou les réglages de puissance/eau/serpillière enregistrés, activez ceci pour les renvoyer juste avant chaque nettoyage. Remplace les zones du robot par celles de Clean Assistant (celles créées dans l'application officielle seraient perdues)",pl:"Jeśli robot startuje \"na zimno\" i czasem ignoruje strefy zakazane lub zapisaną moc/wodę/mopa, włącz to, aby wysłać je ponownie tuż przed każdym sprzątaniem. Zastępuje strefy robota strefami z Clean Assistant (utworzone w oficjalnej aplikacji zostałyby utracone)",de:"Wenn der Roboter \"kalt\" startet und manchmal Sperrzonen oder die gespeicherte Saugkraft/Wasser/Wischmopp-Einstellung ignoriert, aktiviere dies, um sie direkt vor jeder Reinigung erneut zu senden. Ersetzt die Zonen des Roboters durch die von Clean Assistant (in der offiziellen App erstellte gehen verloren)",it:"Se il robot si avvia \"a freddo\" e a volte ignora le zone vietate o la potenza/acqua/mocio salvate, attiva questa opzione per reinviarle subito prima di ogni pulizia. Sostituisce le zone del robot con quelle di Clean Assistant (quelle create nell'app ufficiale andrebbero perse)",nl:"Als de robot \"koud\" opstart en soms verboden zones of de opgeslagen zuigkracht/water/dweil negeert, schakel dit in om ze vlak vóór elke schoonmaakbeurt opnieuw te verzenden. Vervangt de zones van de robot door die van Clean Assistant (zones gemaakt in de officiële app gaan verloren)",ca:"Si el robot arrenca \"en fred\" i de vegades ignora zones prohibides o la potència/aigua/mopa desades, activa això per reenviar-les just abans de cada neteja. Substitueix les zones del robot per les de Clean Assistant (les creades a l'app oficial es perdrien)"},
   "Publica por MQTT la imagen del mapa con el robot y el recorrido mientras limpia":{en:"Publishes the map image over MQTT with the robot and its path while cleaning",pt:"Publica por MQTT a imagem do mapa com o robô e o percurso enquanto limpa",fr:"Publie par MQTT l'image de la carte avec le robot et son trajet pendant le nettoyage",pl:"Publikuje przez MQTT obraz mapy z robotem i trasą podczas sprzątania",de:"Veröffentlicht das Kartenbild per MQTT mit Roboter und Weg während der Reinigung",it:"Pubblica via MQTT l'immagine della mappa con il robot e il percorso durante la pulizia",nl:"Publiceert de kaartafbeelding via MQTT met de robot en zijn route tijdens het schoonmaken",ca:"Publica per MQTT la imatge del mapa amb el robot i el recorregut mentre neteja"},
   "Intervalo del mapa en vivo":{en:"Live map interval",pt:"Intervalo do mapa ao vivo",fr:"Intervalle de la carte en direct",pl:"Odstęp mapy na żywo",de:"Intervall der Live-Karte",it:"Intervallo della mappa dal vivo",nl:"Interval van de live kaart",ca:"Interval del mapa en directe"},
@@ -1206,7 +1229,12 @@
   var BASE=location.pathname.endsWith('/')?location.pathname:location.pathname+'/';
   function api(action,extra){
     return fetch(BASE+'api/command',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(Object.assign({action:action},extra||{}))}).then(function(r){return r.json();});
+      body:JSON.stringify(Object.assign({action:action},extra||{}))}).then(function(r){return r.json();}).then(function(result){
+        if(result.ok===false && (result.code==='pre_clean_failed' || result.code==='command_failed')){
+          uiAlert(result.error || t('No se pudo iniciar la limpieza.'));
+        }
+        return result;
+      });
   }
   function pad(n){return (n<10?'0':'')+n;}
   function hhmm(min){return pad(Math.floor(min/60)%24)+':'+pad(min%60);}
@@ -1312,7 +1340,12 @@
     if(mState) mState.textContent=stLabel(s);
     renderMapStats();
     var mWarn=document.getElementById('mapWarn');   // aviso del robot (p. ej. agua baja)
-    if(mWarn) mWarn.textContent = (st.online!==false && st.warning) ? ('⚠ '+t(st.warning)) : '';
+    if(mWarn){
+      var warnings=[];
+      if(st.online!==false && st.warning) warnings.push(t(st.warning));
+      if(st.last_clean_error) warnings.push(st.last_clean_error.error);
+      mWarn.textContent=warnings.length ? '⚠ '+warnings.join(' · ') : '';
+    }
     // con aviso, la cabecera flotante crece a una línea más; baja el mapa para que no lo tape
     document.body.classList.toggle('has-mapwarn', !!(mWarn && mWarn.textContent));
     // dock play/pause
@@ -1521,7 +1554,24 @@
   wireToggle('persistTog',function(on){api('persistent_map',{value:on});});
   // imagen del mapa por MQTT: la base se publica siempre (solo al cambiar); esto añade robot + recorrido
   wireToggle('mapLiveTog',function(on){fetch(BASE+'api/prefs/map_image_live',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:on})});});
-  wireToggle('resendCleanTog',function(on){fetch(BASE+'api/prefs/resend_before_clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:on})});});
+  function wireResendOption(id, preference){
+    var toggle=document.getElementById(id);
+    wireToggle(id,async function(on){
+      toggle.disabled=true;
+      try {
+        var response=await fetch(BASE+'api/prefs/'+preference,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:on})});
+        if(!response.ok) throw new Error();
+        var settings=await response.json();
+        if(settings.ok!==true) throw new Error();
+        toggle.setAttribute('aria-pressed',String(settings[preference]));
+      } catch(error) {
+        toggle.setAttribute('aria-pressed',String(!on));
+        uiAlert(t('No se pudo guardar el ajuste.'));
+      } finally { toggle.disabled=false; }
+    });
+  }
+  wireResendOption('resendCleanTog','resend_before_clean');
+  wireResendOption('resendWallsTog','resend_restrictions_before_clean');
   // intervalo del mapa en vivo (5-30 s): se intenta en cada pose que informa el robot, esto solo
   // acota cuán seguido se publica de verdad (ver publish_map_image() en mqtt_bridge.py)
   var mli=document.getElementById('mapLiveInterval'),mliv=document.getElementById('mapLiveIntervalV');
@@ -2573,6 +2623,49 @@
     });
   }
   function loadMaps(){ fetch(BASE+'api/maps').then(function(r){return r.json();}).then(function(d){HOUSE_MAPS=d;renderMaps();}).catch(function(){}); }
+  var archive=document.getElementById('mapArchive');
+  var versions=document.getElementById('archiveVersion');
+  var preview=document.getElementById('archivePreview');
+  var download=document.getElementById('archiveDownload');
+  var archiveStatus=document.getElementById('archiveStatus');
+  function showArchiveVersion(){
+    var url=versions.value;
+    preview.hidden=true;
+    download.hidden=!url;
+    if(url){
+      preview.src=url+'/preview.png';
+      download.href=url+'/export';
+    }else{
+      preview.removeAttribute('src');
+      download.removeAttribute('href');
+    }
+    archiveStatus.textContent='';
+  }
+  preview.addEventListener('load',function(){preview.hidden=false;});
+  preview.addEventListener('error',function(){
+    if(versions.value) archiveStatus.textContent=t('No se pudo cargar el plano.');
+  });
+  versions.addEventListener('change',showArchiveVersion);
+  archive.addEventListener('toggle',async function(){
+    if(!archive.open) return;
+    versions.disabled=true;
+    var previous=versions.value;
+    versions.replaceChildren();
+    showArchiveVersion();
+    try{
+      var response=await fetch(BASE+'api/maps/history');
+      if(!response.ok) throw new Error();
+      var history=await response.json();
+      history.versions.forEach(function(item){
+        var url=BASE+'api/maps/history/'+encodeURIComponent(item.map_id)+'/'+encodeURIComponent(item.version);
+        var label=(item.name || t('Mapa'))+' · '+new Date(item.saved_at).toLocaleString(window.CA_LANG)+' · #'+item.map_id;
+        versions.add(new Option(label,url,false,url===previous));
+      });
+      versions.disabled=!versions.length;
+      showArchiveVersion();
+      if(!versions.length) archiveStatus.textContent=t('Aún no hay planos archivados.');
+    }catch(error){archiveStatus.textContent=t('No se pudo cargar el historial.');}
+  });
   _modalInit();
   loadMaps();
   setTimeout(maybeWizard, 3000);   // tras dar tiempo a que lleguen los mapas del robot (WS)
@@ -2779,6 +2872,7 @@
       fb.parentNode.appendChild(fb); } }   // relabelled "Máx" reads better at the end, not first (review #18)
     var ml=document.getElementById('mapLiveTog'); if(ml) ml.setAttribute('aria-pressed',!!info.map_image_live);
     var rc=document.getElementById('resendCleanTog'); if(rc) rc.setAttribute('aria-pressed',!!info.resend_before_clean);
+    document.getElementById('resendWallsTog').setAttribute('aria-pressed',!!info.resend_restrictions_before_clean);
     var mli=document.getElementById('mapLiveInterval'),mliv=document.getElementById('mapLiveIntervalV');
     if(mli&&info.map_image_interval&&document.activeElement!==mli){ mli.value=info.map_image_interval; if(mliv)mliv.textContent=info.map_image_interval+' s'; }
     var el=document.getElementById('entityLangSel'); if(el&&info.lang){ el.value=info.lang; el.setAttribute('data-prev',info.lang); }

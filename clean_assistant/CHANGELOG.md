@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.6-fork.1
+
+- En **Ajustes → Mapas de la casa** puedes consultar y descargar los planos anteriores guardados por el servidor. Las versiones contienen la geometría y los datos de las habitaciones.
+- Los ajustes de limpieza y las restricciones tienen interruptores independientes. El reenvío de restricciones empieza desactivado y conserva las paredes conocidas del robot.
+- La 4090 espera la confirmación del plan de habitaciones y de las paredes enviadas antes de comenzar. El panel muestra el motivo cuando falla la preparación.
+
 ## 0.37.6
 - **Mapa en vivo de la web: el robot se desliza en vez de saltar.** El robot informa su posición cada
   10–20 s; antes el punto se quedaba quieto y saltaba, ahora recorre el camino durante ese mismo

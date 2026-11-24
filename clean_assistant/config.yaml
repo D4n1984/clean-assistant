@@ -1,12 +1,8 @@
-name: "Clean Assistant"
-version: "0.37.6"
+name: "Clean Assistant (D4n1984)"
+version: "0.37.6-fork.1"
 slug: "clean_assistant"
 description: "Local (no-cloud) control for robot vacuums: Cecotec Conga (8090 / 6090 / 7090 / 4690 / 9090 Ultra and more; 3090/4090 experimental) Rowenta X-plorer Serie 80 and Tuya-based Congas such as the 8290 (experimental): live map, room cleaning, zones, schedules, MQTT & Home Assistant."
-url: "https://github.com/miguelsg29/clean-assistant"
-# Imagen PRECOMPILADA (GitHub Actions -> GHCR). Con esto Home Assistant DESCARGA la imagen en vez
-# de compilarla en el dispositivo: actualizaciones rápidas y con barra de progreso. La publica el
-# workflow .github/workflows/build.yml en cada tag. {arch} lo sustituye el Supervisor.
-image: "ghcr.io/miguelsg29/clean-assistant-{arch}"
+url: "https://github.com/D4n1984/clean-assistant"
 arch:
   - aarch64
   - amd64

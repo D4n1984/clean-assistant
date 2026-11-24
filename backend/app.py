@@ -17,7 +17,8 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from conga_core import commands as cmd
@@ -27,6 +28,7 @@ from backend.mock import MockRobot
 from backend.zones import ZoneStore
 from backend.schedules import ScheduleStore, suggested_plans, plan_from_order, run_controls
 from backend.maps import MapStore
+from backend.map_history import MapHistory, atomic_json, valid_map
 from backend.history import HistoryStore
 from backend.battery import BatteryHealth
 from backend.sensors import SensorCare
@@ -258,7 +260,7 @@ PREFS_PATH = _data("prefs.json")
 # de idioma de la propia interfaz web (langSel, puramente client-side) -- el front llama a
 # /api/prefs/lang cuando el usuario lo cambia ahí.
 _ui_prefs = {"map_image_live": False, "map_image_interval": 30,
-             "resend_before_clean": False, "lang": "es"}
+             "resend_before_clean": False, "resend_restrictions_before_clean": False, "lang": "es"}
 # rango permitido para map_image_interval (ver MqttBridge.map_image_live_s / MAP_IMAGE_LIVE_S):
 # por debajo de 5 s se arriesga a saturar MQTT si el robot informa posición muy seguido; por
 # encima de 30 s (el valor por defecto de siempre) deja de sentirse "en vivo".
@@ -303,6 +305,8 @@ def _load_prefs():
     _ui_prefs["map_image_live"] = bool(p.get("map_image_live", False))
     _ui_prefs["map_image_interval"] = _clamp_map_interval(p.get("map_image_interval", 30))
     _ui_prefs["resend_before_clean"] = bool(p.get("resend_before_clean", False))
+    # Migration intentionally requires an explicit opt-in to restriction replacement.
+    _ui_prefs["resend_restrictions_before_clean"] = bool(p.get("resend_restrictions_before_clean", False))
     _ui_prefs["lang"] = p.get("lang") if p.get("lang") in VALID_LANGS else "es"
     cp = p.get("clean_prefs")
     if isinstance(cp, dict):
@@ -320,6 +324,7 @@ def _save_prefs():
                        "map_image_live": _ui_prefs["map_image_live"],
                        "map_image_interval": _ui_prefs["map_image_interval"],
                        "resend_before_clean": _ui_prefs["resend_before_clean"],
+                       "resend_restrictions_before_clean": _ui_prefs["resend_restrictions_before_clean"],
                        "lang": _ui_prefs["lang"],
                        "clean_prefs": {k: mqtt.prefs.get(k) for k in _CLEAN_PREF_KEYS}}, f)
     except Exception:
@@ -336,23 +341,44 @@ _load_prefs()
 # caché del último mapa: se muestra al arrancar (aunque el robot esté en la base) y se
 # refresca cuando el robot envía uno nuevo (al empezar a limpiar y durante la limpieza).
 MAP_CACHE = _data("map_cache.json")
+map_history = MapHistory(_data("map_history.json"))
+_last_saved_map_id = None
 
 
 def _save_map():
+    global _last_saved_map_id
     m = getattr(robot, "map", None)
-    if not m:
+    if getattr(robot, "map_empty", False) or not valid_map(m):
         return
     try:
-        with open(MAP_CACHE, "w", encoding="utf-8") as f:
-            json.dump(m, f)
-    except Exception:
-        pass
+        map_id = getattr(robot.state, "map_head_id", None)
+        if m.get("map_head_id") not in (None, map_id):
+            return
+        changed = map_history.record(map_id, m)
+        if not changed and map_id and _last_saved_map_id == map_id and os.path.exists(MAP_CACHE):
+            return
+        cached = dict(m)
+        if type(map_id) is int and map_id > 0:
+            cached["map_head_id"] = map_id
+        atomic_json(MAP_CACHE, cached)
+        _last_saved_map_id = map_id
+    except (OSError, ValueError, TypeError) as exc:
+        print(f"[map history] could not persist map: {exc}")
 
 
 def _load_map():
     try:
         with open(MAP_CACHE, encoding="utf-8") as f:
-            return json.load(f)
+            m = json.load(f)
+        if not valid_map(m):
+            return None
+        # Only migrate caches carrying an explicit ID; older anonymous caches
+        # remain displayable without guessing which robot map they belong to.
+        try:
+            map_history.record(m.get("map_head_id"), m)
+        except (OSError, ValueError, TypeError) as exc:
+            print(f"[map history] could not retain cached map: {exc}")
+        return m
     except Exception:
         return None
 
@@ -638,10 +664,18 @@ mqtt.prefs.update(_loaded_clean_prefs)                # restaura fan/water/mop/m
                                                        # quedan los DEFAULT_* / "Auto" de siempre)
 
 
+_last_clean_error = {"value": None}
+
+
+def _record_clean_error(error):
+    _last_clean_error["value"] = {"ts": time.time(), "error": str(error)}
+
+
 def _state_dict():
     """robot.state + la sombra de "próxima limpieza" (mqtt.prefs), para que la web pueda
     pintar el Modo/Succión/Agua/Mopa realmente activos en vez de asumir los de fábrica."""
     d = robot.state.to_dict()
+    d["last_clean_error"] = _last_clean_error["value"]
     d["prefs"] = {k: mqtt.prefs.get(k) for k in _CLEAN_PREF_KEYS}
     return d
 # mqtt.ha_notify_provider se asigna más abajo, junto a _on_mqtt_connectivity_change (necesita
@@ -653,32 +687,74 @@ def _send_zone_group(group: str):
     return robot.command(zones.build_command(group, _map_head_id()))
 
 
+class PreCleanError(RuntimeError):
+    pass
+
+
+def _checked_command(control):
+    if LEGACY and control.get("control") == "set_preference" and control.get("ctrltype") == 15:
+        return {"result": 0}  # Legacy has no vibration-mop setting; retain existing schedule behavior.
+    result = robot.command(control)
+    if isinstance(result, dict) and (result.get("ok") is False or result.get("result", 0) not in (0, None)):
+        raise RuntimeError(result.get("error") or f"Comando rechazado: {control.get('control')}")
+    if ((control.get("control") == "set_mode" and control.get("type") == 0 and control.get("value") == 1)
+            or (control.get("control") == "setRoomClean" and control.get("ctrlValue") == 1)):
+        _last_clean_error["value"] = None
+    return result
+
+
+def _resend_restrictions():
+    """Merge restrictions with the live robot map; never send an empty replacement."""
+    mid = _active_map()
+    m = getattr(robot, "map", None) or {}
+    if (not mid or not m or m.get("sample") or m.get("_cached") or "stored_zones" not in m
+            or m.get("map_head_id") not in (None, mid)):
+        raise PreCleanError("No hay mapa activo confirmado para reenviar restricciones")
+    if LEGACY:
+        lm = getattr(robot, "_lmap", {})
+        if (lm.get("head") or {}).get("map_head_id") != mid or "walls" not in lm:
+            raise PreCleanError("Las paredes del mapa activo aún no están confirmadas")
+    saved = [z for z in zones.for_map(mid) if z.get("kind") in ("nogo", "nomop")]
+    current = [z for z in m.get("stored_zones", []) if z.get("kind") in ("nogo", "nomop")]
+    merged = []
+    seen = set()
+    for z, from_robot in [(z, True) for z in current] + [(z, False) for z in saved]:
+        pts = z.get("points_m") if from_robot else z.get("points")
+        if not pts or len(pts) < 2:
+            raise PreCleanError("Restricción sin coordenadas válidas; limpieza cancelada")
+        typ = cmd.VIRWALL_NOMOP if z.get("kind") == "nomop" else cmd.VIRWALL_NOGO
+        # ZoneStore saves four decimal places; the robot returns float coordinates.
+        geometry = tuple((round(float(x), 4), round(float(y), 4)) for x, y in pts)
+        key = (typ, min(geometry, geometry[::-1]))
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append({"points": pts, "type": typ, "name": z.get("name", ""), "id": len(merged) + 1})
+    if merged:
+        _checked_command(cmd.set_virwall(merged, mid))
+
+
 def _resend_zones_and_prefs():
-    """Reenvía al robot las zonas (prohibida/sin fregona/limpieza) y la potencia/agua/mopa/modo
-    actuales justo antes de arrancar una limpieza. Workaround opcional (resend_before_clean, OFF
-    por defecto): un arranque "en frío" del robot a veces parece ignorar zonas y ajustes ya
-    guardados hasta que se reenvían de nuevo -- posible fallo de firmware reportado por un
-    usuario, no confirmado por el fabricante."""
-    if not _ui_prefs.get("resend_before_clean"):
-        return
+    """Settings and restrictions are independent opt-ins. Fail closed before starting."""
     try:
-        _send_zone_group("restricted")   # no-go + no-mopa
-        _send_zone_group("cleaning")     # zonas de limpieza (una/dos veces)
+        if _ui_prefs.get("resend_restrictions_before_clean"):
+            _resend_restrictions()
+        if not _ui_prefs.get("resend_before_clean"):
+            return
         p = mqtt.prefs
-        if p.get("fan") in cmd.FAN:
-            robot.command(cmd.fan(p["fan"]))
-        if p.get("water") in cmd.WATER:
-            robot.command(cmd.water(p["water"]))
-        if p.get("mop") in cmd.MOP:
-            robot.command(cmd.mop(p["mop"]))
-        if p.get("mode") in cmd.CLEAN_MODES:
-            robot.command(cmd.select_mode(p["mode"]))
-        robot.command(cmd.twice(bool(p.get("twice"))))
-        robot.command(cmd.carpet_turbo(bool(p.get("turbo_carpet"))))
+        for key, choices, factory in (("fan", cmd.FAN, cmd.fan), ("water", cmd.WATER, cmd.water),
+                                      ("mop", cmd.MOP, cmd.mop), ("mode", cmd.CLEAN_MODES, cmd.select_mode)):
+            if p.get(key) in choices:
+                _checked_command(factory(p[key]))
+        _checked_command(cmd.twice(bool(p.get("twice"))))
+        _checked_command(cmd.carpet_turbo(bool(p.get("turbo_carpet"))))
     except Exception as e:
-        print(f"[resend_before_clean] fallo al reenviar zonas/ajustes: {e}")
+        _record_clean_error(e)
+        raise PreCleanError(f"No se pudo preparar la limpieza: {e}") from e
 
 
+mqtt.on_clean_started = lambda: _last_clean_error.update(value=None)
+mqtt.on_clean_error = _record_clean_error
 mqtt.pre_clean_resend = _resend_zones_and_prefs        # reenvío opcional de zonas/ajustes (resend_before_clean)
 
 
@@ -940,11 +1016,16 @@ async def _run_due_schedules_legacy():
         _legacy_sched["fired"][p.get("id")] = stamp
         _legacy_sched["last"] = {"ts": time.time(), "name": p.get("name") or "Horario"}
         print(f"[horarios] lanzo '{p.get('name')}' (lo ejecuta Clean Assistant, no el robot)")
-        _resend_zones_and_prefs()
-        for i, c in enumerate(controls):
-            robot.command(c)
-            if i < len(controls) - 1:
-                await asyncio.sleep(0.3)      # potencia/agua antes de limpiar (como schedule_run)
+        try:
+            await asyncio.to_thread(_resend_zones_and_prefs)
+            for i, c in enumerate(controls):
+                await asyncio.to_thread(_checked_command, c)
+                if i < len(controls) - 1:
+                    await asyncio.sleep(0.3)
+        except Exception as e:
+            _record_clean_error(e)
+            _legacy_sched["last"]["error"] = str(e)
+            print(f"[horarios] limpieza cancelada: {e}")
         return                                # uno por minuto: el robot ya está ocupado
 
 
@@ -1077,7 +1158,7 @@ async def lifespan(app: FastAPI):
     if MODE == "real" and getattr(robot, "map", None) is None:
         cached = _load_map()
         if cached:
-            robot.map = cached
+            robot.map = dict(cached, _cached=True)
     def on_provision():
         # primer arranque: captura la identidad del robot de la nube y pasa a local
         save_identity(robot.captured)
@@ -1167,7 +1248,7 @@ async def lifespan(app: FastAPI):
     mqtt.stop()
 
 
-app = FastAPI(title="Clean Assistant", version="0.37.6", lifespan=lifespan)
+app = FastAPI(title="Clean Assistant", version="0.37.6-fork.1", lifespan=lifespan)
 
 
 @app.get("/api/state")
@@ -1189,6 +1270,7 @@ def get_info():
             "map_image_live": mqtt.map_image_live,
             "map_image_interval": mqtt.map_image_live_s,
             "resend_before_clean": _ui_prefs["resend_before_clean"],
+            "resend_restrictions_before_clean": _ui_prefs["resend_restrictions_before_clean"],
             "lang": _ui_prefs["lang"]}
 
 
@@ -1339,9 +1421,16 @@ async def post_command(payload: dict):
         control = build(action, payload)
     except (KeyError, ValueError) as e:
         return {"ok": False, "error": str(e)}
-    if action in ("start", "clean_rooms", "clean_all"):
-        _resend_zones_and_prefs()
-    result = robot.command(control)
+    try:
+        if action in ("start", "clean_rooms", "clean_all"):
+            await asyncio.to_thread(_resend_zones_and_prefs)
+    except PreCleanError as e:
+        return {"ok": False, "code": "pre_clean_failed", "error": str(e)}
+    try:
+        result = await asyncio.to_thread(_checked_command, control)
+    except Exception as e:
+        _record_clean_error(e)
+        return {"ok": False, "code": "command_failed", "error": str(e)}
     if action in ("start", "clean_rooms", "clean_all"):   # limpieza lanzada desde CA -> "manual"
         _clean_trigger["ts"] = time.time()
         _clean_trigger["rooms"] = payload.get("rooms", [])
@@ -1441,12 +1530,18 @@ async def set_map_image_interval(payload: dict):
 
 @app.post("/api/prefs/resend_before_clean")
 async def set_resend_before_clean(payload: dict):
-    """Workaround opcional: reenvía las zonas y la potencia/agua/mopa/modo actuales al robot justo
-    antes de arrancar cualquier limpieza (botón de la app, HA, horario...). OFF por defecto --
-    actívalo solo si el robot parece ignorar zonas/ajustes guardados en un arranque "en frío"."""
+    """Reenvia ajustes antes de limpiar; las restricciones requieren su propio opt-in."""
     _ui_prefs["resend_before_clean"] = bool(payload.get("value"))
     _save_prefs()
     return {"ok": True, "resend_before_clean": _ui_prefs["resend_before_clean"]}
+
+
+@app.post("/api/prefs/resend_restrictions_before_clean")
+async def set_resend_restrictions_before_clean(payload: dict):
+    """Explicitly opt in to resending merged walls and restricted zones."""
+    _ui_prefs["resend_restrictions_before_clean"] = bool(payload.get("value"))
+    _save_prefs()
+    return {"ok": True, "resend_restrictions_before_clean": _ui_prefs["resend_restrictions_before_clean"]}
 
 
 @app.post("/api/prefs/lang")
@@ -1580,6 +1675,42 @@ async def _reconcile_robot_zones():
 @app.get("/api/maps")
 def get_maps():
     return _maps_payload()
+
+
+@app.get("/api/maps/history")
+def get_map_history():
+    """Local decoded-map copies, including maps no longer present on the robot."""
+    return map_history.listing()
+
+
+@app.get("/api/maps/history/{map_id}/{version}")
+def get_map_version(map_id: int, version: str):
+    snapshot = map_history.get(map_id, version)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Map version not found")
+    return snapshot
+
+
+@app.get("/api/maps/history/{map_id}/{version}/export")
+def export_map_version(map_id: int, version: str):
+    snapshot = get_map_version(map_id, version)
+    return JSONResponse(snapshot, headers={
+        "Content-Disposition": f'attachment; filename="map-{map_id}-{snapshot["version"]}.json"'
+    })
+
+
+@app.get("/api/maps/history/{map_id}/{version}/preview.png")
+def preview_map_version(map_id: int, version: str):
+    from conga_core.mapimage import render_png
+
+    snapshot = get_map_version(map_id, version)
+    if not valid_map(snapshot["map"]):
+        raise HTTPException(status_code=422, detail="Invalid stored map")
+    try:
+        image, _ = render_png(snapshot["map"], view=view_settings, live=False)
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        raise HTTPException(status_code=422, detail="Cannot render stored map") from exc
+    return Response(image, media_type="image/png")
 
 
 def _order_key(o):
@@ -1898,11 +2029,18 @@ async def schedule_run(payload: dict):
     controls = run_controls(p)
     if not controls:
         return {"ok": False, "error": "el plan no tiene habitaciones"}
-    _resend_zones_and_prefs()
-    for i, c in enumerate(controls):
-        robot.command(c)
-        if i < len(controls) - 1:
-            await asyncio.sleep(0.3)          # deja que potencia/agua/mopa lleguen antes de limpiar
+    try:
+        await asyncio.to_thread(_resend_zones_and_prefs)
+    except PreCleanError as e:
+        return {"ok": False, "code": "pre_clean_failed", "error": str(e)}
+    try:
+        for i, c in enumerate(controls):
+            await asyncio.to_thread(_checked_command, c)
+            if i < len(controls) - 1:
+                await asyncio.sleep(0.3)
+    except Exception as e:
+        _record_clean_error(e)
+        return {"ok": False, "code": "command_failed", "error": str(e)}
     ids = [r["room"] for r in p.get("rooms", []) if r.get("room") is not None]
     _clean_trigger["ts"] = time.time()        # limpieza lanzada desde CA -> "manual"
     _clean_trigger["rooms"] = ids
