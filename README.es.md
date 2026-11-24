@@ -2,6 +2,8 @@
 
 # Clean Assistant
 
+La Conga 4090 con backend `legacy` admite copias nativas experimentales. Puedes guardar sus archivos de navegación mientras el plano está bien y restaurarlos en el mismo robot si se pierden. Requiere acceso SSH por clave previamente autorizado. [Configurar y restaurar una copia nativa](docs/native-map-restore.md)
+
 En **Ajustes → Mapas de la casa → Historial de planos** puedes ver y descargar versiones anteriores, aunque el robot pierda el mapa activo. Se conservan hasta diez versiones por mapa para un máximo de veinte mapas. El JSON contiene el plano decodificado para consultarlo fuera del robot. Para navegar, la 4090 sigue necesitando su mapa nativo.
 
 En la 4090, selecciona el backend `legacy`. El reenvío de ajustes y el de restricciones tienen interruptores independientes. Al leer preferencias de una versión anterior se conserva el ajuste de potencia y caudal, y el nuevo interruptor de restricciones empieza desactivado.

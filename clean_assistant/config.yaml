@@ -1,5 +1,5 @@
 name: "Clean Assistant (D4n1984)"
-version: "0.37.6-fork.1"
+version: "0.37.6-fork.2"
 slug: "clean_assistant"
 description: "Local (no-cloud) control for robot vacuums: Cecotec Conga (8090 / 6090 / 7090 / 4690 / 9090 Ultra and more; 3090/4090 experimental) Rowenta X-plorer Serie 80 and Tuya-based Congas such as the 8290 (experimental): live map, room cleaning, zones, schedules, MQTT & Home Assistant."
 url: "https://github.com/D4n1984/clean-assistant"
@@ -19,6 +19,9 @@ homeassistant_api: true
 # La interfaz web se abre desde la barra lateral de Home Assistant (ingress).
 ingress: true
 ingress_port: 8099
+map:
+  - type: addon_config
+    read_only: true
 panel_icon: "mdi:robot-vacuum"
 # El robot se conecta a estos puertos (redirige por DNS los dominios de Cecotec a HA):
 #   9090 = control; 8001 = OTA (independencia de la nube); 8002/8006 = subida de historial.
@@ -38,6 +41,7 @@ services:
   - mqtt:want
 options:
   BACKEND: "new"
+  NATIVE_MAPS_ENABLED: false
   ROBOT_IP: ""
   TUYA_DEVICE_ID: ""
   TUYA_LOCAL_KEY: ""
@@ -59,6 +63,7 @@ options:
   DEFAULT_MODE: "Auto"
 schema:
   BACKEND: list(new|legacy|robeye|tuya)
+  NATIVE_MAPS_ENABLED: bool
   ROBOT_IP: str?
   TUYA_DEVICE_ID: str?
   TUYA_LOCAL_KEY: password?

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.37.6-fork.2
+
+- La Conga 4090 con backend `legacy` puede guardar una copia nativa en el servidor y recuperar los archivos de navegación aunque haya perdido el plano activo. La función experimental requiere activar `NATIVE_MAPS_ENABLED` y configurar una clave SSH autorizada.
+- Tras la restauración puedes reiniciar el robot y comprobar desde **Mapas de la casa** si el plano recibido en la nueva conexión coincide con la geometría guardada.
+
 ## 0.37.6-fork.1
 
 - En **Ajustes → Mapas de la casa** puedes consultar y descargar los planos anteriores guardados por el servidor. Las versiones contienen la geometría y los datos de las habitaciones.

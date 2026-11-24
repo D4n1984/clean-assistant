@@ -2,6 +2,8 @@
 
 # Clean Assistant
 
+On a stock Conga 4090 using the `legacy` backend, **Settings → House maps** can back up the robot’s native navigation files and restore them to the same robot. This experimental feature requires an existing authorized SSH key. Create a native backup while the map is healthy. After a restore, restart the robot manually and refresh the panel to compare the map it reports. [Setup and recovery guide (Spanish)](docs/native-map-restore.md)
+
 Open **Settings → House maps → Map history** to preview or download an earlier floor plan, even after the robot loses its active map. The server keeps up to ten versions per map and twenty maps in total. The JSON export contains the decoded floor plan for use outside the robot. Navigation on the 4090 still requires its native map.
 
 For the 4090, select the `legacy` backend. Cleaning settings and restricted areas have separate resend switches. When reading existing preferences, the settings switch retains its value and the new restrictions switch starts off.
