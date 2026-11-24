@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1
 RUN apk add --no-cache python3 py3-pip openssl openssh-client-default jq git curl tzdata py3-cryptography
 
 # Home Assistant builds this tag locally. CI can supply its own source ref.
-ARG APP_REF=conga-0.37.6.2
+ARG APP_REF=conga-0.37.6.3
 RUN git clone --depth 1 --branch "${APP_REF}" https://github.com/D4n1984/clean-assistant /app \
     && pip3 install --no-cache-dir --break-system-packages -r /app/requirements.txt
 

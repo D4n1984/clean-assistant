@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.37.6-fork.3
+
+- En **Copia nativa del mapa del robot → Actualizar estado**, el complemento recupera por SSH el número de serie y la versión completa de firmware si faltan en la conexión actual de la Conga 4090. **Crear copia nativa** guarda los archivos de navegación una vez comprobados el robot, la base y el plano.
+
 ## 0.37.6-fork.2
 
 - La Conga 4090 con backend `legacy` puede guardar una copia nativa en el servidor y recuperar los archivos de navegación aunque haya perdido el plano activo. La función experimental requiere activar `NATIVE_MAPS_ENABLED` y configurar una clave SSH autorizada.

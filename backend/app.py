@@ -1249,7 +1249,7 @@ async def lifespan(app: FastAPI):
     mqtt.stop()
 
 
-app = FastAPI(title="Clean Assistant", version="0.37.6-fork.2", lifespan=lifespan)
+app = FastAPI(title="Clean Assistant", version="0.37.6-fork.3", lifespan=lifespan)
 
 native_maps = NativeMaps(DATA_DIR, lambda: robot, lambda: LEGACY,
                          lambda: (env("NATIVE_MAP_SSH_CONFIG", "") or "").strip())

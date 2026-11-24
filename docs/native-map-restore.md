@@ -21,7 +21,7 @@ Host conga-map
     StrictHostKeyChecking yes
 ```
 
-4. En la configuración del complemento, selecciona `BACKEND: legacy`, activa `NATIVE_MAPS_ENABLED`, reinicia el complemento y abre su interfaz desde Home Assistant. La Conga debe haber comunicado su identidad, su versión y su estado en la conexión actual. Algunos servidores SSH antiguos requieren algoritmos específicos. Comprueba la compatibilidad del cliente con tu conexión autorizada antes de crear la primera copia.
+4. En la configuración del complemento, selecciona `BACKEND: legacy`, activa `NATIVE_MAPS_ENABLED`, reinicia el complemento y abre su interfaz desde Home Assistant. Si la Conga se conecta sin comunicar el número de serie o la versión completa de firmware, pulsa **Actualizar estado**. Clean Assistant lee `device_sn` y `software_version` de `/mnt/UDISK/config/device_config.ini` por la conexión SSH verificada y comprueba los datos recibidos en esa sesión. Cuando el robot esté en la base y haya enviado el plano, pulsa **Crear copia nativa**. La copia queda en el servidor. Algunos servidores SSH antiguos requieren algoritmos específicos. Comprueba la compatibilidad del cliente con tu conexión autorizada antes de crear la primera copia.
 
 En una instalación independiente, configura `CONGA_MODE=real`, `CONGA_BACKEND=legacy`, un `DATA_DIR` privado y persistente, y `NATIVE_MAP_SSH_CONFIG` con la ruta del archivo de configuración SSH. Para estas operaciones abre la interfaz a través de una conexión local a `localhost` en el entorno donde se ejecuta el servidor. Inicia Uvicorn con `--no-proxy-headers`, como en las imágenes incluidas.
 
